@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BGMI Key Generator</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }
+        button { padding: 15px 30px; font-size: 18px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 5px; }
+        button:hover { background: #0056b3; }
+        #keyDisplay { margin-top: 20px; font-size: 20px; font-weight: bold; color: #00ff00; }
+        #status { margin-top: 10px; color: #ffcc00; }
+    </style>
+</head>
+<body>
+    <h2>BGMI Key Generator</h2>
+    <button onclick="generateKey()">Generate New Key (30 Days)</button>
+    <div id="keyDisplay"></div>
+    <div id="status"></div>
+
+    <script>
+        // GitHub Details Change Karein Yahan
+        const repo = "Adronowner/bgmi-keys"; // Apna username yahan likhein
+        const branch = "main";
+        const file = "keys.json";
+
+        async function generateKey() {
+            const status = document.getElementById('status');
+            const display = document.getElementById('keyDisplay');
+            status.innerText = "Loading...";
+
+            try {
+                // 1. Current Data Fetch karo
+                const res = await fetch(`https://raw.githubusercontent.com/${repo}/${branch}/${file}`);
+                const data = await res.json();
+                
+                // 2. New Key Generate karo (Random String)
+                const newKey = Math.random().toString(36).substring(2, 15).toUpperCase();
+                const expiry = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60); // 30 Days in Unix Timestamp
+
+                // 3. Data Update karo
+                data.keys[newKey] = {
+                    status: "active",
+                    expiry: expiry,
+                    user: "BGMI_User"
+                };
+
+                // 4. GitHub Par Push karo
+                // Pehle latest commit SHA nikalna padega (simplified approach for demo)
+                // Note: Real implementation mein SHA fetch karna padta hai, yahan hum direct push karte hain agar structure simple hai
+                // Aasan tareeka: Hum ek simple POST request use karenge GitHub API ke through.
+                
+                const token = ""; // Agar public repo hai toh optional, par safe rahne ke liye Personal Access Token use karein
+                const headers = { "Content-Type": "application/json" };
+                
+                // GitHub API se sha nikalna zaroori hai update ke liye
+                const branchRes = await fetch(`https://api.github.com/repos/${repo}/branches/${branch}`);
+                const branchData = await branchRes.json();
+                const sha = branchData.commit.sha; 
+                
+                // File ka sha nikalna padega actual update ke liye
+                const fileRes = await fetch(`https://api.github.com/repos/${repo}/contents/${file}`);
+                const fileData = await fileRes.json();
+                const fileSha = fileData.sha;
+
+                const updateRes = await fetch(`https://api.github.com/repos/${repo}/contents/${file}`, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `Bearer ${token}`, // Agar token nahi hai toh ye line hata dein, par 403 error aa sakta hai rate limit ki wajah se
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        message: "Add new key",
+                        content: btoa(JSON.stringify(data, null, 2)), // JSON to Base64
+                        sha: fileSha,
+                        branch: branch
+                    })
+                });
+
+                if (updateRes.ok) {
+                    status.innerText = "Key Saved Successfully!";
+                    display.innerText = "New Key: " + newKey;
+                } else {
+                    status.innerText = "Error saving key. Check console.";
+                    console.log(updateRes);
+                }
+
+            } catch (e) {
+                status.innerText = "Error: " + e.message;
+            }
+        }
+    </script>
+</body>
+</html>
